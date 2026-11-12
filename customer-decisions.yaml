@@ -1,0 +1,70 @@
+# Project checklist, NOT an LZA configuration file. Evidence must name a real artifact/test.
+decisions:
+- id: D01
+  decision: Boundary, CUI data flows and customer-owned organization approved
+  status: pending
+  evidence: ''
+- id: D02
+  decision: Real account IDs/emails, GovCloud enrollment and execution role verified
+  status: pending
+  evidence: ''
+- id: D03
+  decision: Installed LZA release and existing Control Tower/resource ownership reconciled
+  status: pending
+  evidence: ''
+- id: D04
+  decision: Primary/recovery Regions and tested region-deny SCP approved
+  status: pending
+  evidence: ''
+- id: D05
+  decision: CIDRs, AZs, private endpoint availability and DNS tested
+  status: pending
+  evidence: ''
+- id: D06
+  decision: IdP/Identity Center MFA, group assignments and emergency access tested
+  status: pending
+  evidence: ''
+- id: D07
+  decision: SCP exceptions restricted, deployment roles protected and canary tests
+    passed
+  status: pending
+  evidence: ''
+- id: D08
+  decision: Retention and compliance-mode Object Lock approved; central log immutability
+    implemented
+  status: pending
+  evidence: ''
+- id: D09
+  decision: FIPS service endpoints, clients and workload crypto paths verified
+  status: pending
+  evidence: ''
+- id: D10
+  decision: Managed-node onboarding, patching, hardening and endpoint protection tested
+  status: pending
+  evidence: ''
+- id: D11
+  decision: Log coverage, failure detection, canary events and SIEM route tested
+  status: pending
+  evidence: ''
+- id: D12
+  decision: Workload encryption keys, key policies and backup restore tests completed
+  status: pending
+  evidence: ''
+- id: D13
+  decision: Required internet/hybrid/inspection/DNS filtering paths implemented or
+    exclusion documented
+  status: pending
+  evidence: ''
+- id: D14
+  decision: Bedrock/container endpoint and application extensions completed or excluded
+    from scope
+  status: pending
+  evidence: ''
+- id: D15
+  decision: Evidence export, control ownership, SSP and operating procedures completed
+  status: pending
+  evidence: ''
+- id: D16
+  decision: Official LZA validation, synth/diff and staging deployment passed
+  status: pending
+  evidence: ''

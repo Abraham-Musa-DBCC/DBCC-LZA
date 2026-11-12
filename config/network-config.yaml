@@ -1,0 +1,205 @@
+# CIDRs/AZ letters are examples. Isolated VPCs with local endpoints, NO internet/hybrid/inspection routes. Add approved connectivity before workloads need external updates. Default VPC deletion needs an inventory review first.
+homeRegion: us-gov-west-1
+defaultVpc:
+  delete: true
+  excludeAccounts: []
+endpointPolicies:
+- name: AccountOnly
+  document: endpoint-policies/account-only.json
+- name: BootstrapS3
+  document: endpoint-policies/s3-bootstrap.json
+transitGateways: []
+vpcs:
+- name: CUIProd-Private
+  account: CUIProd
+  region: us-gov-west-1
+  cidrs:
+  - 10.40.0.0/16
+  internetGateway: false
+  enableDnsHostnames: true
+  enableDnsSupport: true
+  defaultSecurityGroupRulesDeletion: true
+  routeTables:
+  - name: Private-A
+    routes:
+    - name: S3Gateway
+      type: gatewayEndpoint
+      target: s3
+  - name: Private-B
+    routes:
+    - name: S3Gateway
+      type: gatewayEndpoint
+      target: s3
+  subnets:
+  - name: Private-A
+    availabilityZone: a
+    ipv4CidrBlock: 10.40.0.0/24
+    routeTable: Private-A
+    mapPublicIpOnLaunch: false
+  - name: Private-B
+    availabilityZone: b
+    ipv4CidrBlock: 10.40.1.0/24
+    routeTable: Private-B
+    mapPublicIpOnLaunch: false
+  gatewayEndpoints:
+    defaultPolicy: BootstrapS3
+    endpoints:
+    - service: s3
+  interfaceEndpoints:
+    central: false
+    defaultPolicy: AccountOnly
+    allowedCidrs:
+    - 10.40.0.0/16
+    subnets:
+    - Private-A
+    - Private-B
+    endpoints:
+    - service: ssm
+    - service: ssmmessages
+    - service: ec2messages
+    - service: logs
+    - service: monitoring
+    - service: kms
+    - service: secretsmanager
+    - service: sts
+    - service: ec2
+  queryLogs:
+  - CMMC-DnsQueries
+  tags:
+  - key: DataClassification
+    value: CUI
+- name: CUIDev-Private
+  account: CUIDev
+  region: us-gov-west-1
+  cidrs:
+  - 10.41.0.0/16
+  internetGateway: false
+  enableDnsHostnames: true
+  enableDnsSupport: true
+  defaultSecurityGroupRulesDeletion: true
+  routeTables:
+  - name: Private-A
+    routes:
+    - name: S3Gateway
+      type: gatewayEndpoint
+      target: s3
+  - name: Private-B
+    routes:
+    - name: S3Gateway
+      type: gatewayEndpoint
+      target: s3
+  subnets:
+  - name: Private-A
+    availabilityZone: a
+    ipv4CidrBlock: 10.41.0.0/24
+    routeTable: Private-A
+    mapPublicIpOnLaunch: false
+  - name: Private-B
+    availabilityZone: b
+    ipv4CidrBlock: 10.41.1.0/24
+    routeTable: Private-B
+    mapPublicIpOnLaunch: false
+  gatewayEndpoints:
+    defaultPolicy: BootstrapS3
+    endpoints:
+    - service: s3
+  interfaceEndpoints:
+    central: false
+    defaultPolicy: AccountOnly
+    allowedCidrs:
+    - 10.41.0.0/16
+    subnets:
+    - Private-A
+    - Private-B
+    endpoints:
+    - service: ssm
+    - service: ssmmessages
+    - service: ec2messages
+    - service: logs
+    - service: monitoring
+    - service: kms
+    - service: secretsmanager
+    - service: sts
+    - service: ec2
+  queryLogs:
+  - CMMC-DnsQueries
+  tags:
+  - key: DataClassification
+    value: CUI
+- name: SharedServices-Private
+  account: SharedServices
+  region: us-gov-west-1
+  cidrs:
+  - 10.42.0.0/16
+  internetGateway: false
+  enableDnsHostnames: true
+  enableDnsSupport: true
+  defaultSecurityGroupRulesDeletion: true
+  routeTables:
+  - name: Private-A
+    routes:
+    - name: S3Gateway
+      type: gatewayEndpoint
+      target: s3
+  - name: Private-B
+    routes:
+    - name: S3Gateway
+      type: gatewayEndpoint
+      target: s3
+  subnets:
+  - name: Private-A
+    availabilityZone: a
+    ipv4CidrBlock: 10.42.0.0/24
+    routeTable: Private-A
+    mapPublicIpOnLaunch: false
+  - name: Private-B
+    availabilityZone: b
+    ipv4CidrBlock: 10.42.1.0/24
+    routeTable: Private-B
+    mapPublicIpOnLaunch: false
+  gatewayEndpoints:
+    defaultPolicy: BootstrapS3
+    endpoints:
+    - service: s3
+  interfaceEndpoints:
+    central: false
+    defaultPolicy: AccountOnly
+    allowedCidrs:
+    - 10.42.0.0/16
+    subnets:
+    - Private-A
+    - Private-B
+    endpoints:
+    - service: ssm
+    - service: ssmmessages
+    - service: ec2messages
+    - service: logs
+    - service: monitoring
+    - service: kms
+    - service: secretsmanager
+    - service: sts
+    - service: ec2
+  queryLogs:
+  - CMMC-DnsQueries
+  tags:
+  - key: DataClassification
+    value: SecurityProtection
+vpcFlowLogs:
+  trafficType: ALL
+  maxAggregationInterval: 60
+  destinations:
+  - s3
+  defaultFormat: true
+  customFields: []
+centralNetworkServices:
+  delegatedAdminAccount: Network
+  route53Resolver:
+    queryLogs:
+      name: CMMC-DnsQueries
+      destinations:
+      - s3
+      shareTargets:
+        organizationalUnits:
+        - CUI-Production
+        - CUI-Development
+        - Infrastructure

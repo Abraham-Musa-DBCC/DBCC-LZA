@@ -1,0 +1,28 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "DenyUnapprovedRegionalOperations",
+      "Effect": "Deny",
+      "NotAction": [
+        "iam:*",
+        "organizations:*",
+        "account:*",
+        "route53:*",
+        "support:*",
+        "health:*",
+        "budgets:*",
+        "ce:*",
+        "pricing:*"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "StringNotEquals": {
+          "aws:RequestedRegion": [
+            "us-gov-west-1"
+          ]
+        }
+      }
+    }
+  ]
+}

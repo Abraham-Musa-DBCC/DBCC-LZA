@@ -1,0 +1,37 @@
+# SCPs must be piloted before broad OU attachment. Quarantine workflow disabled.
+enable: true
+organizationalUnits:
+- name: Security
+- name: Infrastructure
+- name: CUI-Production
+- name: CUI-Development
+- name: Sandbox
+- name: Quarantine
+quarantineNewAccounts:
+  enable: false
+serviceControlPolicies:
+- name: CMMC-ApprovedRegions
+  description: Limit regional operations; global-service exceptions require review
+  policy: service-control-policies/approved-regions.json
+  type: customerManaged
+  deploymentTargets:
+    organizationalUnits:
+    - Security
+    - Infrastructure
+    - CUI-Production
+    - CUI-Development
+    - Sandbox
+- name: CMMC-ProtectSecurityTelemetry
+  description: Protect telemetry from ordinary member-account principals; test LZA
+    exemptions
+  policy: service-control-policies/protect-security-telemetry.json
+  type: customerManaged
+  deploymentTargets:
+    organizationalUnits:
+    - Security
+    - Infrastructure
+    - CUI-Production
+    - CUI-Development
+    - Sandbox
+taggingPolicies: []
+backupPolicies: []

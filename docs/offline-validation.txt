@@ -1,0 +1,4 @@
+Offline checks: PASS
+Scope: seven pinned schemas, YAML/JSON syntax, asset references, account/OU references, CIDRs and route-table references.
+Not checked: official LZA semantic validation, AWS permissions, endpoint availability, live deployment, or CMMC effectiveness.
+NOTICE: 26 placeholder occurrences remain; --ready will reject them.

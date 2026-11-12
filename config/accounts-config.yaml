@@ -1,0 +1,44 @@
+# GOVCLOUD-SIDE starter for already provisioned/enrolled accounts. Replace ALL emails/IDs. Do not use to create a commercial organization.
+mandatoryAccounts:
+- name: Management
+  email: REPLACE-management@example.invalid
+  organizationalUnit: Root
+- name: LogArchive
+  email: REPLACE-logarchive@example.invalid
+  organizationalUnit: Security
+- name: Audit
+  email: REPLACE-audit@example.invalid
+  organizationalUnit: Security
+workloadAccounts:
+- name: Network
+  email: REPLACE-network@example.invalid
+  organizationalUnit: Infrastructure
+- name: SharedServices
+  email: REPLACE-sharedservices@example.invalid
+  organizationalUnit: Infrastructure
+- name: CUIProd
+  email: REPLACE-cuiprod@example.invalid
+  organizationalUnit: CUI-Production
+- name: CUIDev
+  email: REPLACE-cuidev@example.invalid
+  organizationalUnit: CUI-Development
+- name: Sandbox
+  email: REPLACE-sandbox@example.invalid
+  organizationalUnit: Sandbox
+accountIds:
+- email: REPLACE-management@example.invalid
+  accountId: '111111111111'
+- email: REPLACE-logarchive@example.invalid
+  accountId: '222222222222'
+- email: REPLACE-audit@example.invalid
+  accountId: '333333333333'
+- email: REPLACE-network@example.invalid
+  accountId: '444444444444'
+- email: REPLACE-sharedservices@example.invalid
+  accountId: '555555555555'
+- email: REPLACE-cuiprod@example.invalid
+  accountId: '666666666666'
+- email: REPLACE-cuidev@example.invalid
+  accountId: '777777777777'
+- email: REPLACE-sandbox@example.invalid
+  accountId: '888888888888'

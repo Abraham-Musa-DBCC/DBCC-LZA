@@ -1,0 +1,16 @@
+# Creates an additional evidence bucket, not an immutable replacement for the LZA central log bucket. Evidence export jobs and scoped reader/writer permissions remain to be configured.
+customizations:
+  cloudFormationStacks:
+  - name: CMMC-EvidenceStore
+    description: Separate protected evidence store; does not lock LZA log buckets
+    deploymentTargets:
+      accounts:
+      - LogArchive
+    regions:
+    - us-gov-west-1
+    runOrder: 1
+    template: cloudformation/evidence-store.yaml
+    terminationProtection: true
+    parameters:
+    - name: RetentionDays
+      value: '2555'

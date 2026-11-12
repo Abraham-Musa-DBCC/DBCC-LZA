@@ -1,0 +1,34 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "OwningAccountS3Access",
+      "Effect": "Allow",
+      "Principal": "*",
+      "Action": "s3:*",
+      "Resource": "*",
+      "Condition": {
+        "StringEquals": {
+          "aws:PrincipalAccount": "${ACCOUNT_ID}"
+        }
+      }
+    },
+    {
+      "Sid": "ReadRequiredAwsManagedBootstrapArtifacts",
+      "Effect": "Allow",
+      "Principal": "*",
+      "Action": [
+        "s3:GetObject"
+      ],
+      "Resource": [
+        "arn:aws-us-gov:s3:::amazon-ssm-us-gov-west-1/*",
+        "arn:aws-us-gov:s3:::aws-ssm-us-gov-west-1/*",
+        "arn:aws-us-gov:s3:::aws-windows-downloads-us-gov-west-1/*",
+        "arn:aws-us-gov:s3:::amazon-ssm-packages-us-gov-west-1/*",
+        "arn:aws-us-gov:s3:::us-gov-west-1-birdwatcher-prod/*",
+        "arn:aws-us-gov:s3:::patch-baseline-snapshot-us-gov-west-1/*",
+        "arn:aws-us-gov:s3:::aws-ssm-document-attachments-us-gov-west-1/*"
+      ]
+    }
+  ]
+}

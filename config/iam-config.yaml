@@ -1,0 +1,38 @@
+# Identity Center pre-enablement required; assignments intentionally empty. Permission set sessions: minutes; IAM role sessions: seconds.
+homeRegion: us-gov-west-1
+roleSets:
+- deploymentTargets:
+    organizationalUnits:
+    - Root
+  roles:
+  - name: CMMC-ManagedNodeRole
+    instanceProfile: true
+    maxSessionDuration: 3600
+    assumedBy:
+    - type: service
+      principal: ec2.amazonaws.com
+    policies:
+      awsManaged:
+      - AmazonSSMManagedInstanceCore
+      - CloudWatchAgentServerPolicy
+identityCenter:
+  name: CMMC-Workforce
+  identityCenterPermissionSets:
+  - name: CMMC-SecurityAudit
+    description: Security audit metadata only; separately authorize CUI log reads
+    sessionDuration: 60
+    policies:
+      awsManaged:
+      - SecurityAudit
+  - name: CMMC-PlatformAdmin
+    description: Privileged platform administrators; restrict membership and approval
+    sessionDuration: 60
+    policies:
+      awsManaged:
+      - AdministratorAccess
+  - name: CMMC-Operator
+    description: Read operational metadata; separately authorize scoped SSM sessions
+    sessionDuration: 60
+    policies:
+      inlinePolicy: iam-policies/operator-read-only.json
+  identityCenterAssignments: []

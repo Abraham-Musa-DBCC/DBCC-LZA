@@ -1,0 +1,88 @@
+# Config rules detect drift; they do not remediate it. CUIDataKey is created but must be selected by workloads; EBS default encryption here uses its account default key. No endpoint malware agent is installed.
+homeRegion: us-gov-west-1
+centralSecurityServices:
+  delegatedAdminAccount: Audit
+  ebsDefaultVolumeEncryption:
+    enable: true
+  s3PublicAccessBlock:
+    enable: true
+  guardduty:
+    enable: true
+    autoEnableOrgMembers: true
+    s3Protection:
+      enable: true
+    exportConfiguration:
+      enable: true
+      destinationType: S3
+      exportFrequency: FIFTEEN_MINUTES
+  securityHub:
+    enable: true
+    regionAggregation: false
+    snsTopicName: Security
+    notificationLevel: HIGH
+    standards:
+    - name: AWS Foundational Security Best Practices v1.0.0
+      enable: true
+  ssmAutomation:
+    documentSets: []
+accessAnalyzer:
+  enable: true
+iamPasswordPolicy:
+  allowUsersToChangePassword: true
+  hardExpiry: false
+  requireUppercaseCharacters: true
+  requireLowercaseCharacters: true
+  requireSymbols: true
+  requireNumbers: true
+  minimumPasswordLength: 14
+  passwordReusePrevention: 24
+  maxPasswordAge: 90
+awsConfig:
+  enableConfigurationRecorder: true
+  overrideExisting: false
+  aggregation:
+    enable: true
+    delegatedAdminAccount: Audit
+  ruleSets:
+  - deploymentTargets:
+      organizationalUnits:
+      - Root
+    rules:
+    - name: cmmc-encrypted-volumes
+      identifier: ENCRYPTED_VOLUMES
+    - name: cmmc-s3-public-read-prohibited
+      identifier: S3_BUCKET_PUBLIC_READ_PROHIBITED
+    - name: cmmc-s3-public-write-prohibited
+      identifier: S3_BUCKET_PUBLIC_WRITE_PROHIBITED
+    - name: cmmc-s3-tls-only
+      identifier: S3_BUCKET_SSL_REQUESTS_ONLY
+    - name: cmmc-cloudtrail-enabled
+      identifier: CLOUD_TRAIL_ENABLED
+    - name: cmmc-root-mfa-enabled
+      identifier: ROOT_ACCOUNT_MFA_ENABLED
+    - name: cmmc-no-root-access-key
+      identifier: IAM_ROOT_ACCESS_KEY_CHECK
+    - name: cmmc-ec2-no-public-ip
+      identifier: EC2_INSTANCE_NO_PUBLIC_IP
+    - name: cmmc-ec2-imdsv2
+      identifier: EC2_IMDSV2_CHECK
+    - name: cmmc-kms-rotation
+      identifier: CMK_BACKING_KEY_ROTATION_ENABLED
+    - name: cmmc-ssm-managed-instances
+      identifier: EC2_INSTANCE_MANAGED_BY_SSM
+cloudWatch:
+  metricSets: []
+  alarmSets: []
+keyManagementService:
+  keySets:
+  - name: CUIDataKey
+    alias: cmmc/cui-data
+    description: Workload data encryption key; IAM use and service grants must be
+      approved
+    enableKeyRotation: true
+    enabled: true
+    removalPolicy: retain
+    deploymentTargets:
+      organizationalUnits:
+      - CUI-Production
+      - CUI-Development

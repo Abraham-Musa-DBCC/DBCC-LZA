@@ -1,0 +1,83 @@
+# Non-Control-Tower baseline; preserve existing Control Tower/Config/CloudTrail ownership during a merge. Retention 365/2555 days is a proposal, NOT a CMMC mandate. S3 data events may incur substantial cost.
+homeRegion: us-gov-west-1
+enabledRegions:
+- us-gov-west-1
+managementAccountAccessRole: OrganizationAccountAccessRole
+cloudwatchLogRetentionInDays: 365
+configurationValidationMode: strict
+terminationProtection: true
+controlTower:
+  enable: false
+logging:
+  account: LogArchive
+  centralizedLoggingRegion: us-gov-west-1
+  cloudtrail:
+    enable: true
+    organizationTrail: true
+    organizationTrailSettings:
+      multiRegionTrail: true
+      globalServiceEvents: true
+      managementEvents: true
+      s3DataEvents: true
+      lambdaDataEvents: false
+      sendToCloudWatchLogs: true
+      apiErrorRateInsight: false
+      apiCallRateInsight: false
+    lifecycleRules: &id001
+    - id: ApprovedLogLifecycle
+      enabled: true
+      abortIncompleteMultipartUpload: 7
+      transitions:
+      - storageClass: GLACIER
+        transitionAfter: 365
+      expiration: 2555
+      noncurrentVersionExpiration: 2555
+  centralLogBucket:
+    lifecycleRules: *id001
+  accessLogBucket:
+    enable: true
+    lifecycleRules: *id001
+  sessionManager:
+    sendToCloudWatchLogs: true
+    sendToS3: true
+    idleSessionTimeout: 15
+    maxSessionDuration: 60
+    cloudWatchStreamingEnabled: true
+    attachPolicyToIamRoles:
+    - CMMC-ManagedNodeRole
+  cloudwatchLogs:
+    enable: true
+    encryption:
+      useCMK: true
+      deploymentTargets: &id002
+        organizationalUnits:
+        - Root
+    dynamicPartitioningByAccountId: true
+    organizationIdConditionSupported: true
+snsTopics:
+  deploymentTargets: *id002
+  topics:
+  - name: Security
+    emailAddresses:
+    - REPLACE-security-operations@example.invalid
+ssmInventory:
+  enable: true
+  deploymentTargets:
+    organizationalUnits:
+    - CUI-Production
+    - CUI-Development
+    - Infrastructure
+backup:
+  vaults:
+  - name: CMMC-WorkloadBackup
+    deploymentTargets:
+      organizationalUnits:
+      - CUI-Production
+      - CUI-Development
+tags:
+- key: Baseline
+  value: GovCloud-CMMC-L2-Starter
+- key: Customer
+  value: REPLACE-CUSTOMER
+- key: ManagedBy
+  value: LZA
