@@ -1,4 +1,4 @@
-# CIDRs/AZ letters are examples. Isolated VPCs with local endpoints, NO internet/hybrid/inspection routes. Add approved connectivity before workloads need external updates. Default VPC deletion needs an inventory review first.
+# CIDRs/AZ letters are examples. VPCs interconnected via Transit Gateway in the Network account, with local endpoints. NO internet/hybrid/inspection routes. Add approved connectivity before workloads need external updates. Default VPC deletion needs an inventory review first.
 homeRegion: us-gov-west-1
 defaultVpc:
   delete: true
@@ -8,7 +8,33 @@ endpointPolicies:
   document: endpoint-policies/account-only.json
 - name: BootstrapS3
   document: endpoint-policies/s3-bootstrap.json
-transitGateways: []
+transitGateways:
+- name: CMMC-TGW
+  account: Network
+  region: us-gov-west-1
+  asn: 64512
+  dnsSupport: enable
+  vpnEcmpSupport: enable
+  defaultRouteTableAssociation: disable
+  defaultRouteTablePropagation: disable
+  autoAcceptSharingAttachments: enable
+  shareTargets:
+    organizationalUnits:
+    - CUI-Production
+    - CUI-Development
+    - Infrastructure
+  routeTables:
+  - name: CMMC-TGW-Shared
+    routes: []
+  transitGatewayFlowLogs:
+    maxAggregationInterval: 60
+    destinations:
+    - s3
+    defaultFormat: true
+    customFields: []
+  tags:
+  - key: DataClassification
+    value: SecurityProtection
 vpcs:
 - name: CUIProd-Private
   account: CUIProd
@@ -25,11 +51,27 @@ vpcs:
     - name: S3Gateway
       type: gatewayEndpoint
       target: s3
+    - name: ToCUIDev
+      destination: 10.41.0.0/16
+      type: transitGateway
+      target: CMMC-TGW-CUIProd-Attach
+    - name: ToSharedServices
+      destination: 10.42.0.0/16
+      type: transitGateway
+      target: CMMC-TGW-CUIProd-Attach
   - name: Private-B
     routes:
     - name: S3Gateway
       type: gatewayEndpoint
       target: s3
+    - name: ToCUIDev
+      destination: 10.41.0.0/16
+      type: transitGateway
+      target: CMMC-TGW-CUIProd-Attach
+    - name: ToSharedServices
+      destination: 10.42.0.0/16
+      type: transitGateway
+      target: CMMC-TGW-CUIProd-Attach
   subnets:
   - name: Private-A
     availabilityZone: a
@@ -63,6 +105,20 @@ vpcs:
     - service: secretsmanager
     - service: sts
     - service: ec2
+  transitGatewayAttachments:
+  - name: CMMC-TGW-CUIProd-Attach
+    transitGateway:
+      name: CMMC-TGW
+      account: Network
+    subnets:
+    - Private-A
+    - Private-B
+    routeTableAssociations:
+    - CMMC-TGW-Shared
+    routeTablePropagations:
+    - CMMC-TGW-Shared
+    options:
+      dnsSupport: enable
   queryLogs:
   - CMMC-DnsQueries
   tags:
@@ -83,11 +139,27 @@ vpcs:
     - name: S3Gateway
       type: gatewayEndpoint
       target: s3
+    - name: ToCUIProd
+      destination: 10.40.0.0/16
+      type: transitGateway
+      target: CMMC-TGW-CUIDev-Attach
+    - name: ToSharedServices
+      destination: 10.42.0.0/16
+      type: transitGateway
+      target: CMMC-TGW-CUIDev-Attach
   - name: Private-B
     routes:
     - name: S3Gateway
       type: gatewayEndpoint
       target: s3
+    - name: ToCUIProd
+      destination: 10.40.0.0/16
+      type: transitGateway
+      target: CMMC-TGW-CUIDev-Attach
+    - name: ToSharedServices
+      destination: 10.42.0.0/16
+      type: transitGateway
+      target: CMMC-TGW-CUIDev-Attach
   subnets:
   - name: Private-A
     availabilityZone: a
@@ -121,6 +193,20 @@ vpcs:
     - service: secretsmanager
     - service: sts
     - service: ec2
+  transitGatewayAttachments:
+  - name: CMMC-TGW-CUIDev-Attach
+    transitGateway:
+      name: CMMC-TGW
+      account: Network
+    subnets:
+    - Private-A
+    - Private-B
+    routeTableAssociations:
+    - CMMC-TGW-Shared
+    routeTablePropagations:
+    - CMMC-TGW-Shared
+    options:
+      dnsSupport: enable
   queryLogs:
   - CMMC-DnsQueries
   tags:
@@ -141,11 +227,27 @@ vpcs:
     - name: S3Gateway
       type: gatewayEndpoint
       target: s3
+    - name: ToCUIProd
+      destination: 10.40.0.0/16
+      type: transitGateway
+      target: CMMC-TGW-SharedSvc-Attach
+    - name: ToCUIDev
+      destination: 10.41.0.0/16
+      type: transitGateway
+      target: CMMC-TGW-SharedSvc-Attach
   - name: Private-B
     routes:
     - name: S3Gateway
       type: gatewayEndpoint
       target: s3
+    - name: ToCUIProd
+      destination: 10.40.0.0/16
+      type: transitGateway
+      target: CMMC-TGW-SharedSvc-Attach
+    - name: ToCUIDev
+      destination: 10.41.0.0/16
+      type: transitGateway
+      target: CMMC-TGW-SharedSvc-Attach
   subnets:
   - name: Private-A
     availabilityZone: a
@@ -179,6 +281,20 @@ vpcs:
     - service: secretsmanager
     - service: sts
     - service: ec2
+  transitGatewayAttachments:
+  - name: CMMC-TGW-SharedSvc-Attach
+    transitGateway:
+      name: CMMC-TGW
+      account: Network
+    subnets:
+    - Private-A
+    - Private-B
+    routeTableAssociations:
+    - CMMC-TGW-Shared
+    routeTablePropagations:
+    - CMMC-TGW-Shared
+    options:
+      dnsSupport: enable
   queryLogs:
   - CMMC-DnsQueries
   tags:

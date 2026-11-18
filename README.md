@@ -29,10 +29,10 @@ Only the contents of `config/` belong in the LZA configuration source. `customer
 | Accounts | Management, LogArchive, Audit, Network, SharedServices, CUIProd, CUIDev, Sandbox |
 | OUs | Security, Infrastructure, CUI-Production, CUI-Development, Sandbox, Quarantine |
 | Governance | Approved-Region SCP and telemetry-protection SCP; quarantine automation deliberately disabled |
-| Networks | Three separate /16 private VPCs, two AZs each, no internet gateway/NAT/TGW/hybrid route |
+| Networks | Three private /16 VPCs (CUIProd, CUIDev, SharedServices), two AZs each, interconnected via Transit Gateway in the Network account; no internet gateway/NAT/hybrid route |
 | Endpoints | Per-VPC S3 gateway plus SSM, SSM Messages, EC2 Messages, Logs, Monitoring, KMS, Secrets Manager, STS and EC2 interfaces |
 | Sessions | Identity Center permission sets: 60 minutes; SSM idle: 15 minutes; SSM maximum: 60 minutes |
-| Security | Config recorder/rules, GuardDuty with S3 protection/export, Security Hub FSBP, Access Analyzer, S3 account public access blocking, default EBS encryption |
+| Security | Config recorder/rules, GuardDuty with S3 protection/export, Security Hub FSBP + NIST SP 800-53 Rev 5 + CIS v3.0.0, Access Analyzer, S3 account public access blocking, default EBS encryption; custom stack adds finding export, SNS alerting and CMMC insights |
 | Logging | Organization CloudTrail with S3 data events, CloudWatch centralization, SSM session logging, VPC flow logs and DNS query logs |
 | Retention proposal | CloudWatch: 365 days; S3 log lifecycle expiration: 2,555 days; archive transition at 365 days |
 | Evidence | Separate retained KMS-encrypted bucket with 2,555-day default COMPLIANCE Object Lock, deployed through LZA customizations |
@@ -43,7 +43,7 @@ These numeric settings are proposed organizational policy values, not universal 
 ## Material implementation boundaries
 
 - **No identity access is granted:** permission sets are defined, assignments are empty, and the IdP/MFA configuration is external.
-- **No inspected egress or hybrid network exists:** isolated VPCs are a starting point. Package/EDR update paths and directory connectivity must be designed and tested.
+- **No inspected egress or hybrid network exists:** the Transit Gateway provides inter-VPC routing between CUIProd, CUIDev and SharedServices only. It does not provide internet, NAT, VPN, Direct Connect or inspection. Package/EDR update paths and directory connectivity must be designed and tested. Add TGW route-table segmentation or inspection appliances before cross-VPC traffic needs enforcement.
 - **FIPS is not configured end to end:** standard service endpoints appear in this baseline. Select and verify each required FIPS endpoint/client path before processing CUI.
 - **The LZA central log bucket is not Object Locked by these files.** The custom evidence bucket is separate. Implement central log immutability under the proper resource owner and verify existing-object handling.
 - **No log-failure alarms, SIEM connector, patch schedule, hardening association, EDR agent, workload backup plan, or Bedrock application is deployed.** Their completion steps and tests are explicit in the guide.
@@ -60,6 +60,7 @@ These numeric settings are proposed organizational policy values, not universal 
 | `config/endpoint-policies/` | Account-scoped interface policy and S3 bootstrap policy |
 | `config/iam-policies/` | Restricted operational read-only policy |
 | `config/cloudformation/evidence-store.yaml` | Separate evidence-store custom stack |
+| `config/cloudformation/security-hub.yaml` | Security Hub finding export, alerting and CMMC insights stack |
 | `customer-decisions.yaml` | Sixteen pending customer implementation/validation decisions |
 | `docs/IMPLEMENTATION-STEPS.md` | Ordered actions, ownership and acceptance criteria |
 | `docs/CHANGE-MATRIX.md` | File-level settings, rationale and remaining work |

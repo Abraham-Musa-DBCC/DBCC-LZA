@@ -122,7 +122,8 @@ Acceptance: managed-node inventory, patch scan/install reports, hardening evalua
 
 1. Build a source/account/Region/destination/owner/retention inventory. Confirm organization CloudTrail status and log validation, Config coverage, S3 data-event selectors, DNS/flow logs, SSM session records, application/OS/database/EDR logs and any Bedrock logs.
 2. Review organization-wide S3 data-event volume/cost; use supported scoped selectors if required. Lambda data events are disabled in this proposal and must be enabled or separately scoped when relevant to the control design.
-3. Confirm SNS email subscriptions and route alerts to an actively monitored queue. Email configuration is not evidence of operational response.
+3. Confirm SNS email subscriptions and route alerts to an actively monitored queue. Email configuration is not evidence of operational response. The Security Hub custom stack deploys a CMMC-SecurityHub-Alerts SNS topic in the Audit account; confirm the subscription and alerting thresholds.
+4. Verify Security Hub finding export: the custom stack deploys an EventBridge rule (all findings) to Kinesis Firehose and CloudWatch Logs, and a second rule (high/critical) to SNS. Confirm findings appear in the S3 export bucket, CloudWatch log group `/aws/securityhub/cmmc-findings`, and SNS alerts. Review the four CMMC-relevant Security Hub insights (critical by resource, high by resource, CUI-tagged resource findings, non-compliant by rule).
 4. Add a scheduled read-only health checker for CloudTrail `GetTrailStatus` (including delivery errors and last-delivery timestamps), Config recorder/channel status and central-log freshness. Publish health metrics; alert on explicit failure and missing expected heartbeats.
 5. Add appropriate pipeline metrics: CloudWatch subscription delivery errors/throttling, Firehose delivery success/freshness, EventBridge failed invocations and DLQs, and collector/agent heartbeat status. Thresholds and missing-data behavior must fit each source.
 6. Generate scheduled identifiable canary events and verify them at the final destination. Alert on missing canaries using a separate monitoring path so a failed log path does not also silence its own failure alarm.
@@ -143,11 +144,12 @@ Acceptance: encryption/key-policy evidence, successful backups, isolated restore
 
 ### D13 — Egress, hybrid access and DNS policy — Network owner
 
-1. Decide whether isolated operation is sufficient. These VPCs have local routes and private endpoints only; there is no TGW, VPN, Direct Connect, internet gateway or NAT.
-2. For required connectivity, define TGW route-table separation and explicit allowed flows. Add centralized or distributed inspection, symmetric routing and allowed egress destinations using a reviewed topology.
+1. The Transit Gateway (CMMC-TGW) interconnects CUIProd, CUIDev and SharedServices VPCs via a single shared TGW route table. All three attachments associate and propagate to CMMC-TGW-Shared, so each VPC can reach the others' /16 CIDR. This provides east-west connectivity without inspection; it is not an internet, NAT, VPN or Direct Connect path.
+2. For segmentation, replace the shared route table with per-VPC route tables and explicit allowed flows, or add a Gateway Load Balancer / Network Firewall inspection attachment. Define symmetric routing and allowed egress destinations using a reviewed topology.
 3. Configure resolver inbound/outbound endpoints and forwarding rules for the actual directories/domains. Add DNS Firewall rules where required; query logging alone does not filter DNS.
 4. Add application SG rules and verify east-west separation. Default VPC SG rules are removed, but explicit workload SGs still need to be created.
-5. Test production/development isolation, hybrid DNS, inspection bypass prevention, permitted updates, and denied egress.
+5. Test production/development isolation, hybrid DNS, inspection bypass prevention, permitted updates, and denied egress. Review TGW RAM share scope and auto-accept settings against the approved boundary.
+6. TGW flow logs are delivered to S3 at 60-second aggregation. Verify log delivery, source inventory, access and retention alongside VPC flow logs.
 
 Acceptance: approved connectivity diagram, routes and firewall rule review, observed traffic-path tests, and denied-flow evidence. If a feature is out of scope, record the approved rationale.
 

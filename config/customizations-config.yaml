@@ -14,3 +14,19 @@ customizations:
     parameters:
     - name: RetentionDays
       value: '2555'
+  - name: CMMC-SecurityHub
+    description: Security Hub finding export, alerting and CMMC insights in the delegated
+      admin account; complements LZA native securityHub config
+    deploymentTargets:
+      accounts:
+      - Audit
+    regions:
+    - us-gov-west-1
+    runOrder: 2
+    template: cloudformation/security-hub.yaml
+    terminationProtection: true
+    parameters:
+    - name: RetentionDays
+      value: '2555'
+    - name: NotificationEmailAddress
+      value: REPLACE-security-operations@example.invalid

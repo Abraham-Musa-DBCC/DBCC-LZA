@@ -8,6 +8,7 @@ Checked 2026-11-09 against bundled LZA v1.17.0 schemas.
 | YAML/JSON parsing, referenced local assets | PASS |
 | Account/OU target names, VPC CIDR/subnet overlap, local route-table references and endpoint policy references | PASS |
 | Evidence-store CloudFormation template with cfn-lint | PASS, no diagnostics |
+| Security Hub CloudFormation template with cfn-lint | PASS, no diagnostics |
 | Readiness gate on supplied starter | Expected FAIL: placeholders and all 16 customer prerequisites remain open |
 | AWS LZA official semantic validator, synthesis and deployment | NOT RUN |
 | Live GovCloud service/endpoint availability and IAM policy effectiveness | NOT TESTED |

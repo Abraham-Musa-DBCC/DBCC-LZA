@@ -17,11 +17,20 @@ centralSecurityServices:
       exportFrequency: FIFTEEN_MINUTES
   securityHub:
     enable: true
-    regionAggregation: false
+    autoEnableOrgMembers: true
+    regionAggregation: true
     snsTopicName: Security
     notificationLevel: HIGH
+    logging:
+      cloudWatch:
+        enable: true
+        logLevel: HIGH
     standards:
     - name: AWS Foundational Security Best Practices v1.0.0
+      enable: true
+    - name: NIST Special Publication 800-53 Revision 5
+      enable: true
+    - name: CIS AWS Foundations Benchmark v3.0.0
       enable: true
   ssmAutomation:
     documentSets: []

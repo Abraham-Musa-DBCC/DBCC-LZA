@@ -1,0 +1,382 @@
+# Security Hub supplementary stack for CMMC evidence collection and alerting.
+# Deploys to the Audit (delegated administrator) account. The LZA native
+# security-config.yaml handles org-wide enablement, delegated admin, member
+# onboarding, and security standards. This template adds:
+#   - Encrypted S3 finding-export bucket with COMPLIANCE Object Lock
+#   - Kinesis Data Firehose stream to deliver findings to S3
+#   - EventBridge rules for all findings (export) and high/critical (alerting)
+#   - SNS topic with KMS encryption for finding notifications
+#   - CloudWatch Logs group for operational visibility
+#   - Security Hub insights scoped to CMMC-relevant finding categories
+# Does NOT create AWS::SecurityHub::Hub or AWS::SecurityHub::Standard to avoid
+# conflicts with the LZA-managed resources. The delegated administrator is
+# configured by LZA through centralSecurityServices.delegatedAdminAccount.
+AWSTemplateFormatVersion: '2010-09-09'
+Description: CMMC Security Hub finding export, alerting, and insights for the delegated administrator account
+Parameters:
+  RetentionDays:
+    Type: Number
+    Default: 2555
+    MinValue: 1
+    Description: Customer-approved retention, not a fixed CMMC requirement
+  NotificationEmailAddress:
+    Type: String
+    Default: REPLACE-security-operations@example.invalid
+    Description: Email address for Security Hub finding alerts
+Conditions:
+  HasEmail:
+    Fn::Not:
+    - Fn::Equals:
+      - Ref: NotificationEmailAddress
+      - REPLACE-security-operations@example.invalid
+Resources:
+  # === Encryption key ===
+  SecurityHubKMSKey:
+    Type: AWS::KMS::Key
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      EnableKeyRotation: true
+      Description: CMMC Security Hub finding encryption
+      KeyPolicy:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: EnableAccountIamDelegation
+            Effect: Allow
+            Principal:
+              AWS:
+                Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:root
+            Action: kms:*
+            Resource: '*'
+          - Sid: AllowFirehose
+            Effect: Allow
+            Principal:
+              Service: firehose.amazonaws.com
+            Action:
+              - kms:Decrypt
+              - kms:GenerateDataKey
+            Resource: '*'
+          - Sid: AllowEventBridgeSNS
+            Effect: Allow
+            Principal:
+              Service:
+                - events.amazonaws.com
+                - sns.amazonaws.com
+            Action:
+              - kms:Decrypt
+              - kms:GenerateDataKey
+            Resource: '*'
+  # === Finding export S3 bucket ===
+  SecurityHubFindingsBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      VersioningConfiguration:
+        Status: Enabled
+      ObjectLockEnabled: true
+      ObjectLockConfiguration:
+        ObjectLockEnabled: Enabled
+        Rule:
+          DefaultRetention:
+            Mode: COMPLIANCE
+            Days:
+              Ref: RetentionDays
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: aws:kms
+              KMSMasterKeyID:
+                Fn::GetAtt: [SecurityHubKMSKey, Arn]
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        IgnorePublicAcls: true
+        BlockPublicPolicy: true
+        RestrictPublicBuckets: true
+      LifecycleConfiguration:
+        Rules:
+          - Id: FindingsToGlacier
+            Status: Enabled
+            Transitions:
+              - StorageClass: GLACIER
+                TransitionInDays: 365
+            ExpirationInDays:
+              Ref: RetentionDays
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced
+  SecurityHubFindingsBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket:
+        Ref: SecurityHubFindingsBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: DenyInsecureTransport
+            Effect: Deny
+            Principal: '*'
+            Action: s3:*
+            Resource:
+              - Fn::GetAtt: [SecurityHubFindingsBucket, Arn]
+              - Fn::Sub: ${SecurityHubFindingsBucket.Arn}/*
+            Condition:
+              Bool:
+                aws:SecureTransport: 'false'
+  # === Firehose delivery stream for finding export ===
+  FirehoseRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: firehose.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: FirehoseS3KMSAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:AbortMultipartUpload
+                  - s3:GetBucketLocation
+                  - s3:GetObject
+                  - s3:ListBucket
+                  - s3:ListBucketMultipartUploads
+                  - s3:PutObject
+                Resource:
+                  - Fn::GetAtt: [SecurityHubFindingsBucket, Arn]
+                  - Fn::Sub: ${SecurityHubFindingsBucket.Arn}/*
+              - Effect: Allow
+                Action:
+                  - kms:Decrypt
+                  - kms:GenerateDataKey
+                Resource:
+                  Fn::GetAtt: [SecurityHubKMSKey, Arn]
+  SecurityHubFirehose:
+    Type: AWS::KinesisFirehose::DeliveryStream
+    Properties:
+      DeliveryStreamName: CMMC-SecurityHub-Findings
+      DeliveryStreamType: DirectPut
+      ExtendedS3DestinationConfiguration:
+        BucketARN:
+          Fn::GetAtt: [SecurityHubFindingsBucket, Arn]
+        BufferingHints:
+          IntervalInSeconds: 300
+          SizeInMBs: 5
+        CompressionFormat: GZIP
+        EncryptionConfiguration:
+          KMSEncryptionConfig:
+            AWSKMSKeyARN:
+              Fn::GetAtt: [SecurityHubKMSKey, Arn]
+        Prefix: findings/!{timestamp:yyyy/MM/dd}/
+        RoleARN:
+          Fn::GetAtt: [FirehoseRole, Arn]
+  # === EventBridge roles ===
+  EventBridgeFirehoseRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: events.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: EventBridgeFirehosePut
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - firehose:PutRecord
+                  - firehose:PutRecordBatch
+                Resource:
+                  Fn::GetAtt: [SecurityHubFirehose, Arn]
+  EventBridgeLogsRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: events.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: EventBridgeCloudWatchLogs
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource:
+                  Fn::GetAtt: [SecurityHubLogGroup, Arn]
+  # === SNS topic for finding alerts ===
+  SecurityHubSNSTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: CMMC-SecurityHub-Alerts
+      KmsMasterKeyId:
+        Fn::GetAtt: [SecurityHubKMSKey, Arn]
+  SecurityHubSNSTopicPolicy:
+    Type: AWS::SNS::TopicPolicy
+    Properties:
+      Topics:
+        - Ref: SecurityHubSNSTopic
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: AllowEventBridgePublish
+            Effect: Allow
+            Principal:
+              Service: events.amazonaws.com
+            Action: sns:Publish
+            Resource:
+              Ref: SecurityHubSNSTopic
+  SecurityHubSNSSubscription:
+    Type: AWS::SNS::Subscription
+    Condition: HasEmail
+    Properties:
+      Protocol: email
+      TopicArn:
+        Ref: SecurityHubSNSTopic
+      Endpoint:
+        Ref: NotificationEmailAddress
+  # === CloudWatch log group for findings ===
+  SecurityHubLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /aws/securityhub/cmmc-findings
+      RetentionInDays:
+        Ref: RetentionDays
+      KmsKeyId:
+        Fn::GetAtt: [SecurityHubKMSKey, Arn]
+  # === EventBridge rules ===
+  # Rule 1: all findings -> Firehose + CloudWatch Logs (evidence)
+  SecurityHubAllFindingsRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: CMMC-SecurityHub-All-Findings
+      Description: Route all Security Hub findings to S3 export and CloudWatch Logs
+      EventPattern:
+        source:
+          - aws.securityhub
+        detail-type:
+          - Security Hub Findings - Imported
+      State: ENABLED
+      Targets:
+        - Arn:
+            Fn::GetAtt: [SecurityHubFirehose, Arn]
+          Id: FirehoseExportTarget
+          RoleArn:
+            Fn::GetAtt: [EventBridgeFirehoseRole, Arn]
+        - Arn:
+            Fn::GetAtt: [SecurityHubLogGroup, Arn]
+          Id: CloudWatchLogsTarget
+          RoleArn:
+            Fn::GetAtt: [EventBridgeLogsRole, Arn]
+  # Rule 2: high/critical findings -> SNS (alerting)
+  SecurityHubCriticalAlertsRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: CMMC-SecurityHub-Critical-Alerts
+      Description: Alert on high and critical Security Hub findings
+      EventPattern:
+        source:
+          - aws.securityhub
+        detail-type:
+          - Security Hub Findings - Imported
+        detail:
+          findings:
+            Severity:
+              Label:
+                - HIGH
+                - CRITICAL
+      State: ENABLED
+      Targets:
+        - Arn:
+            Ref: SecurityHubSNSTopic
+          Id: SNSAlertTarget
+  # === Security Hub insights ===
+  # Insight 1: all critical findings grouped by resource
+  CMMCCriticalFindingsInsight:
+    Type: AWS::SecurityHub::Insight
+    Properties:
+      Name: CMMC-Critical-Findings-By-Resource
+      GroupByAttribute: ResourceId
+      Filters:
+        SeverityLabel:
+          - Comparison: EQUALS
+            Value: CRITICAL
+        WorkflowStatus:
+          - Comparison: EQUALS
+            Value: NEW
+  # Insight 2: high findings grouped by resource (for triage)
+  CMMCHighFindingsInsight:
+    Type: AWS::SecurityHub::Insight
+    Properties:
+      Name: CMMC-High-Findings-By-Resource
+      GroupByAttribute: ResourceId
+      Filters:
+        SeverityLabel:
+          - Comparison: EQUALS
+            Value: HIGH
+        WorkflowStatus:
+          - Comparison: EQUALS
+            Value: NEW
+  # Insight 3: findings on CUI-tagged resources
+  CMMCCUIResourceFindingsInsight:
+    Type: AWS::SecurityHub::Insight
+    Properties:
+      Name: CMMC-CUI-Resource-Findings
+      GroupByAttribute: ResourceId
+      Filters:
+        RecordState:
+          - Comparison: EQUALS
+            Value: ACTIVE
+        ResourceTags:
+          - Key: DataClassification
+            Comparison: EQUALS
+            Value: CUI
+  # Insight 4: non-compliant Config rules grouped by rule
+  CMMCNonCompliantRulesInsight:
+    Type: AWS::SecurityHub::Insight
+    Properties:
+      Name: CMMC-Non-Compliant-By-Rule
+      GroupByAttribute: GeneratorId
+      Filters:
+        RecordState:
+          - Comparison: EQUALS
+            Value: ACTIVE
+        WorkflowStatus:
+          - Comparison: EQUALS
+            Value: NEW
+        ComplianceStatus:
+          - Comparison: EQUALS
+            Value: FAILED
+Outputs:
+  FindingsBucketName:
+    Value:
+      Ref: SecurityHubFindingsBucket
+  FindingsBucketArn:
+    Value:
+      Fn::GetAtt: [SecurityHubFindingsBucket, Arn]
+  KMSKeyArn:
+    Value:
+      Fn::GetAtt: [SecurityHubKMSKey, Arn]
+  FirehoseArn:
+    Value:
+      Fn::GetAtt: [SecurityHubFirehose, Arn]
+  SNSTopicArn:
+    Value:
+      Ref: SecurityHubSNSTopic
+  CloudWatchLogGroup:
+    Value:
+      Ref: SecurityHubLogGroup
